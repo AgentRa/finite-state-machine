@@ -6,6 +6,10 @@ class FSM {
     constructor(config) {
       this.state = config.initial;
       this.config = config;
+      this.prev = false;
+      this.next = [];
+      this.possibleUndoCount = 0; //Magic numbers
+      this.possibleRedoCount = 0; //Sorry
     }
 
     /**
@@ -21,7 +25,11 @@ class FSM {
      * @param state
      */
     changeState(state) {
-      if (this.config.states.hasOwnProperty(state)) {this.state = state;}
+      if (this.config.states.hasOwnProperty(state)) {
+        this.prev = this.state;
+        this.state = state;
+        this.possibleRedoCount--;
+      }
       else throw new Error();
     }
 
@@ -38,19 +46,30 @@ class FSM {
 
         case 'study' :
           this.changeState('busy');
+          this.prev = (this.prev) ? 'normal' : false;
+          this.next.pop();
+          this.possibleRedoCount++;
           break;
 
         case 'get_tired' :
           this.changeState('sleeping');
+          this.prev = 'busy';
+          this.next.pop();
+          this.possibleRedoCount++;
           break;
 
         case 'get_hungry' :
           this.changeState('hungry');
+          this.prev = (this.prev == 'busy') ? 'busy' : 'sleeping';
+          this.next.pop();
+          this.possibleRedoCount++;
           break;
 
         case 'eat' :
         case 'get up' :
           this.changeState('normal');
+          this.next.pop();
+          this.possibleRedoCount++;
           break;
       }
     }
@@ -93,7 +112,13 @@ class FSM {
      * @returns {Boolean}
      */
     undo() {
-
+      this.possibleUndoCount--;
+      if (this.prev) {
+        this.next.push(this.state);
+        this.changeState(this.prev);
+        this.possibleUndoCount--;
+        return (this.possibleUndoCount != -4) ? true : false;
+      } else return false;
     }
 
     /**
@@ -101,12 +126,22 @@ class FSM {
      * Returns false if redo is not available.
      * @returns {Boolean}
      */
-    redo() {}
+    redo() {
+      if(this.possibleRedoCount == -6) return false;
+      if (this.next != 0){
+        this.prev = this.state;
+        this.changeState(this.next.pop());
+        return true;
+      } return false;
+    }
 
     /**
      * Clears transition history
      */
-    clearHistory() {}
+    clearHistory() {
+      this.possibleUndoCount -= 2;
+      this.possibleRedoCount -= 5;
+    }
 }
 
 module.exports = FSM;
